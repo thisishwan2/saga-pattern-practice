@@ -1,0 +1,51 @@
+spring:
+  application:
+    name: account-service
+  
+  datasource:
+    url: jdbc:mysql://localhost:3309/account_db
+    username: account_user
+    password: account_pass
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: none
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+  
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      group-id: account-service-group
+      properties:
+        spring.json.trusted.packages: "*"
+
+server:
+  port: 8081
+
+# Service URLs for Orchestration
+service:
+  transaction:
+    url: http://localhost:8082
+  notification:
+    url: http://localhost:8083
+
+logging:
+  level:
+    root: WARN
+    com.saga: DEBUG
+    org.apache.kafka: WARN
+    org.springframework.kafka: WARN
+    org.hibernate: WARN
+    com.zaxxer.hikari: WARN
+    org.springframework.web: WARN
+    org.springframework.boot: WARN
+

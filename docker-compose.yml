@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # Zookeeper(분산시스템 코디네이터)
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: saga-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes: # 볼륨 마운트를 통해 데이터 영속성 유지
+      - zookeeper-data:/var/lib/zookeeper/data
+      - zookeeper-logs:/var/lib/zookeeper/log
+    networks:
+      - saga-network
+
+  # Kafka
+  kafka:
+    image: confluentinc/cp-kafka:7.4.0
+    container_name: saga-kafka
+    depends_on: # Kafka가 시작되기 전에 Zookeeper가 실행되도록 설정
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      # 컨테이너간 통신을 위한 리스너, 로컬 머신(스프링)을 통해 접근하기 위한 리스너 설정
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:29092,PLAINTEXT_HOST://0.0.0.0:9092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1 # 단일 브로커 설정이므로 1로 설정
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1 # 최소 ISR 설정
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1 # 단일 브로커 설정이므로 1로 설정
+    networks:
+      - saga-network
+
+  # MySQL for Service 1 - Account Service
+  mysql-service1:
+    image: mysql:8.0
+    container_name: saga-mysql-service1
+    ports:
+      - "3309:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: account_db
+      MYSQL_USER: account_user
+      MYSQL_PASSWORD: account_pass
+    volumes:
+      - mysql-service1-data:/var/lib/mysql
+      # 로컬 SQL 파일을 컨테이너 초기화 스크립트로 실행하기 위한 매핑(컨테이너 첫실행시 자동 실행)
+      - ./datasource/init-service1.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - saga-network
+
+  # MySQL for Service 2 - Transaction Service
+  mysql-service2:
+    image: mysql:8.0
+    container_name: saga-mysql-service2
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: transaction_db
+      MYSQL_USER: transaction_user
+      MYSQL_PASSWORD: transaction_pass
+    volumes:
+      - mysql-service2-data:/var/lib/mysql
+      - ./datasource/init-service2.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - saga-network
+
+  # MySQL for Service 3 - Notification Service
+  mysql-service3:
+    image: mysql:8.0
+    container_name: saga-mysql-service3
+    ports:
+      - "3308:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: notification_db
+      MYSQL_USER: notification_user
+      MYSQL_PASSWORD: notification_pass
+    volumes:
+      - mysql-service3-data:/var/lib/mysql
+      - ./datasource/init-service3.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - saga-network
+
+# 컨테이너 간 통신을 위한 Docker 가상 네트워크 설정
+networks:
+  saga-network:
+    driver: bridge
+
+# 컨테이너 데이터 영속성을 위한 볼륨 설정
+volumes:
+  zookeeper-data:
+  zookeeper-logs:
+  kafka-data:
+  mysql-service1-data:
+  mysql-service2-data:
+  mysql-service3-data:
+
