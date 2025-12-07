@@ -3,7 +3,7 @@ package com.saga.common.dto
 import java.math.BigDecimal
 
 data class TransferRequest(
-    val sagaIn: String,
+    val fromAccountNumber: String,
     val toAccountNumber: String,
     val amount: BigDecimal
 )
