@@ -30,6 +30,7 @@ class ChoreographyService(
         val sagaId = UUID.randomUUID().toString()
 
         try {
+            log.info("출금 처리 로컬 트랜잭션 시작");
             // 1. 출금처리
             val fromAccount = accountRepository.findByAccountNumber(request.fromAccountNumber)
                 ?: throw RuntimeException("출금 계좌 없음")
@@ -77,9 +78,11 @@ class ChoreographyService(
                 amount = request.amount
             )
             KafkaTemplate.send("account.withdraw.success", event)
+            log.info("출금 성공 이벤트 발행 성공");
 
             return TransferResponse(sagaId, "STARTED", "출금 성공, 입금 처리 중")
         }catch (e: Exception) {
+            log.info("출금 처리중 오류 발생 출금 실패 이벤트 발행")
             val event = WithdrawFailedEvent(sagaId, request.fromAccountNumber, "잔액 부족")
             KafkaTemplate.send("account.withdraw.failed", event)
             return TransferResponse(sagaId, "FAILED", "잔액 부족")

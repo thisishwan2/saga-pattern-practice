@@ -6,6 +6,7 @@ import com.saga.common.event.DepositFailedEvent
 import com.saga.common.event.DepositSuccessEvent
 import com.saga.common.event.NotificationFailedEvent
 import jakarta.transaction.Transactional
+import mu.KotlinLogging
 import org.springframework.kafka.annotation.KafkaListener
 import org.springframework.stereotype.Service
 
@@ -19,10 +20,12 @@ class CompensateService(
     private val sagaStateRepository: SagaStateRepository,
     private val accountRepository: AccountRepository
 ) {
+    private val log = KotlinLogging.logger {}
 
     // 입금 실패 이벤트 수신
     @KafkaListener(topics = ["transaction.deposit.failed"], groupId = "account-service-group")
     fun handleDepositFailed(event: DepositFailedEvent) {
+        log.info("입급 실패 이벤트 수신: 출금 보상 처리 수행")
         compensateWithdraw(event.sagaId)
     }
 
@@ -44,6 +47,7 @@ class CompensateService(
     @Transactional
     @KafkaListener(topics = ["transaction.deposit.success"], groupId = "account-service-group")
     fun handleDepositSuccess(event: DepositSuccessEvent) {
+        log.info("입급 성공 이벤트 수신: SAGA 완료 처리")
         val sagaState = sagaStateRepository.findById(event.sagaId).orElse(null)
         sagaState?.let {
             it.status = "COMPLETED"
@@ -55,6 +59,7 @@ class CompensateService(
     @Transactional
     @KafkaListener(topics = ["notification.failed"], groupId = "account-service-group")
     fun handleNotificationFailed(event: NotificationFailedEvent) {
+        log.info("알림 발송 실패 이벤트 수신: SAGA 상태 변경")
         val sagaState = sagaStateRepository.findById(event.sagaId).orElse(null)
         sagaState?.let {
             it.status = "COMPLETED_WITH_NOTIFICATION_FAILURE"

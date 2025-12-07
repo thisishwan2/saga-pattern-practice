@@ -83,6 +83,7 @@ class OrchestrationService(
                     fromAccountNumber = request.fromAccountNumber
                 )
 
+                log.info("입금 서비스 호출 시작");
                 restTemplate.postForObject(
                     "$transactionServiceUrl/internal/deposit",
                     depositRequest,
@@ -91,9 +92,11 @@ class OrchestrationService(
 
                 sagaState.status = "COMPLETED"
                 sagaStateRepository.save(sagaState)
+                log.info("입금 서비스 호출 성공");
 
                 return TransferResponse(sagaId, "COMPLETED", "이체 성공")
             }catch (e: Exception) {
+                log.info("출금 서비스 보상 트랜잭션 시작");
                 // 출금 서비스 보상 트랜잭션 수행
                 fromAccount.balance = fromAccount.balance.add(request.amount)
                 accountRepository.save(fromAccount)
@@ -103,11 +106,12 @@ class OrchestrationService(
 
                 sagaState.status = "COMPENSATED"
                 sagaStateRepository.save(sagaState)
-
+                log.info("출금 서비스 보상 트랜잭션 성공");
                 return TransferResponse(sagaId, "FAILED", "출금 실패: ${e.message}")
             }
 
         }catch (e: Exception) {
+            log.info("출금 처리 로컬 트랜잭션 오류");
             return TransferResponse(sagaId, "FAILED", e.message ?: "오류 발생")
         }
     }
